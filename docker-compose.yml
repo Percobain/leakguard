@@ -1,0 +1,75 @@
+name: leakguard
+
+services:
+  vault:
+    image: hashicorp/vault:1.17
+    container_name: leakguard-vault
+    cap_add: [IPC_LOCK]
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_TOKEN:-leakguard-root}
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    ports: ["8200:8200"]
+    healthcheck:
+      test: ["CMD", "vault", "status", "-address=http://127.0.0.1:8200"]
+      interval: 3s
+      retries: 20
+
+  mock-google:
+    build: ./services/mock-google
+    container_name: leakguard-mock-google
+    ports: ["7000:7000"]
+
+  demo-app:
+    build: ./services/demo-app
+    container_name: leakguard-demo-app
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_ROLE_ID: demo-app
+      VAULT_SECRET_ID: ${DEMO_APP_SECRET_ID:-demo-app-secret-id}
+      GEMINI_BASE: ${GEMINI_BASE:-http://mock-google:7000}
+    ports: ["3000:3000"]
+    depends_on:
+      vault: { condition: service_healthy }
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
+    container_name: leakguard-orchestrator
+    environment:
+      GITHUB_TOKEN: ${GITHUB_TOKEN:?run "npm run setup" first}
+      TARGET_REPO: ${TARGET_REPO:?run "npm run setup" first}
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN:-leakguard-root}
+      DEMO_APP_SECRET_ID: ${DEMO_APP_SECRET_ID:-demo-app-secret-id}
+      GOOGLE_MODE: ${GOOGLE_MODE:-simulated}
+      GCP_PROJECT: ${GCP_PROJECT:-leakguard-demo}
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/gcp-sa.json
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./secrets:/secrets:ro
+      - work:/work
+    ports: ["4000:4000"]
+    depends_on:
+      vault: { condition: service_healthy }
+      mock-google: { condition: service_started }
+      demo-app: { condition: service_started }
+
+  attacker:
+    build: ./services/attacker
+    container_name: leakguard-attacker
+    environment:
+      TARGET_REPO: ${TARGET_REPO}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GEMINI_BASE: ${GEMINI_BASE:-http://mock-google:7000}
+      REPORT_URL: http://orchestrator:4000/api/internal/attacker
+    depends_on: [orchestrator]
+
+  dashboard:
+    build: ./dashboard
+    container_name: leakguard-dashboard
+    ports: ["8080:80"]
+    depends_on: [orchestrator]
+
+volumes:
+  work:

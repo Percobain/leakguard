@@ -1,0 +1,12 @@
+{
+  "name": "leakguard",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Auto-detect, rotate, redeploy, clean and prove: leaked-secret incident response for GitHub",
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "up": "docker compose up --build -d",
+    "down": "docker compose down -v",
+    "logs": "docker compose logs -f orchestrator attacker"
+  }
+}

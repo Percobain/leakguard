@@ -1,0 +1,30 @@
+{
+  "name": "leakguard-dashboard",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "copy-snarkjs": "node scripts/copy-snarkjs.mjs",
+    "predev": "node scripts/copy-snarkjs.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/copy-snarkjs.mjs",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "mock": "node scripts/mock-server.mjs"
+  },
+  "dependencies": {
+    "framer-motion": "^11.11.17",
+    "lucide-react": "^0.460.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "snarkjs": "^0.7.5",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,5 @@
+node_modules/
+tmp/
+*.ptau
+*.r1cs
+*_0000.zkey
