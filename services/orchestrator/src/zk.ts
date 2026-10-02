@@ -9,7 +9,7 @@ import * as snarkjs from 'snarkjs';
 export const ZK_N = 64;
 
 export class DirtyRepoError extends Error {
-  constructor(msg = 'Leaked key still present in repo — proof impossible') {
+  constructor(msg = 'Leaked key still present in repo: proof impossible') {
     super(msg);
     this.name = 'DirtyRepoError';
   }

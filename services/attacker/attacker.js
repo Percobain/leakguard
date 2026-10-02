@@ -1,5 +1,5 @@
 // The "attacker": a scraper bot that watches the repo's commits, harvests any Google API key it
-// sees, and then hammers the Gemini API with it. It never forgets a key — deleting the commit
+// sees, and then hammers the Gemini API with it. It never forgets a key, deleting the commit
 // does not help. Only revoking the key at Google stops it.
 import http from 'node:http';
 
@@ -57,8 +57,8 @@ async function abuse() {
   }).catch((e) => ({ ok: false, status: 0, json: async () => ({ error: { message: e.message } }) }));
   const body = await r.json().catch(() => ({}));
   const message = r.ok
-    ? '200 OK — free Gemini on someone else\'s bill'
-    : `${r.status} ${body.error?.details?.[0]?.reason || body.error?.status || ''} — ${body.error?.message || 'denied'}`;
+    ? '200 OK: free Gemini on someone else\'s bill'
+    : `${r.status} ${body.error?.details?.[0]?.reason || body.error?.status || ''}: ${body.error?.message || 'denied'}`;
   await report({ type: 'attempt', t: Date.now(), keyMasked: mask(stolen.key), status: r.status, message });
 }
 

@@ -43,6 +43,7 @@ services:
       VAULT_TOKEN: ${VAULT_TOKEN:-leakguard-root}
       DEMO_APP_SECRET_ID: ${DEMO_APP_SECRET_ID:-demo-app-secret-id}
       GOOGLE_MODE: ${GOOGLE_MODE:-simulated}
+      DEMO_PACE_MS: ${DEMO_PACE_MS:-3000}
       GCP_PROJECT: ${GCP_PROJECT:-leakguard-demo}
       GOOGLE_APPLICATION_CREDENTIALS: /secrets/gcp-sa.json
     volumes:

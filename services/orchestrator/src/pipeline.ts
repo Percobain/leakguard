@@ -8,6 +8,13 @@ import * as github from './github.js';
 import { proveClean, DirtyRepoError } from './zk.js';
 import type { ActionsRun, Finding } from './types.js';
 
+/** Hold a finished chapter on screen for the audience (presentation pacing only). */
+const pace = async () => {
+  if (!config.demoPaceMs) return;
+  state.incident.pacedMs = (state.incident.pacedMs ?? 0) + config.demoPaceMs;
+  await sleep(config.demoPaceMs);
+};
+
 const knownLeaked: string[] = []; // every key that has ever been leaked (kept forever)
 const handledRuns = new Set<number>();
 let lastResetAt = 0;
@@ -50,7 +57,7 @@ export async function bootstrap() {
 
   let cur = await vault.readCurrent();
   if (!cur || !(await google.keyWorks(cur.data.api_key))) {
-    log('google', 'No valid production key in Vault — provisioning one via the API Keys API');
+    log('google', 'No valid production key in Vault, provisioning one via the API Keys API');
     const key = await google.createKey('fortune-teller-prod');
     await vault.writeSecret({ api_key: key.keyString, key_id: key.keyId, created_at: Date.now(), reason: 'initial provisioning' });
     log('vault', `Stored production key ${mask(key.keyString)} at secret/${config.vaultSecretPath}`, 'success');
@@ -140,7 +147,7 @@ export function attackerEvent(ev: any) {
     log('attacker', `Scraper bot harvested ${ev.keyMasked} from commit ${String(ev.commit).slice(0, 7)} (${ev.file})`, 'error');
     mark('Attacker harvested the key', 'bad');
     if (state.incident.status === 'exposed') {
-      narrate('An attacker already has the key.', `A scraper bot found ${ev.keyMasked} in the commit within seconds and is now using it to call Gemini on our bill. Deleting the file will not help — the bot already copied it.`);
+      narrate('An attacker already has the key.', `A scraper bot found ${ev.keyMasked} in the commit within seconds and is now using it to call Gemini on our bill. Deleting the file will not help: the bot already copied it.`);
     }
   } else if (ev.type === 'attempt') {
     a.attempts.push({ t: ev.t, keyMasked: ev.keyMasked, status: ev.status, message: ev.message });
@@ -162,7 +169,7 @@ export function attackerEvent(ev: any) {
 
 // ---------------------------------------------------------------- leak
 export async function leak() {
-  if (state.busy) throw new Error('Busy — wait for the current run to finish');
+  if (state.busy) throw new Error('Busy. Wait for the current run to finish');
   state.busy = true;
   resetIncident();
   state.incident = { id: state.incident.id + 1, status: 'exposed', findings: [] };
@@ -180,7 +187,7 @@ export async function leak() {
     state.incident.leakedKeyMasked = mask(cur.data.api_key);
     step('leak', 'done', `commit ${sha.slice(0, 7)} pushed`);
     mark('Production key pushed to GitHub', 'bad', 'leak');
-    log('github', `Pushed ${sha.slice(0, 7)} "add prod config so the demo works on my machine" — contains ${mask(cur.data.api_key)}`, 'error');
+    log('github', `Pushed ${sha.slice(0, 7)} "add prod config so the demo works on my machine", contains ${mask(cur.data.api_key)}`, 'error');
     step('detect', 'running', 'Waiting for GitHub to start the workflow…');
     await refreshRepo();
   } catch (e) {
@@ -209,15 +216,16 @@ async function remediate(run: ActionsRun, findings: Finding[], secrets: string[]
   const f = findings[0];
   step('detect', 'done', `${findings.length} finding(s) · ${f.ruleId} in ${f.file}:${f.line}`);
   mark('gitleaks flagged the secret', 'neutral', 'detect');
+  await pace();
   log('gitleaks', `Run #${run.runNumber} FAILED: ${f.ruleId} ${f.secretMasked} in ${f.file}:${f.line} (commit ${f.commit.slice(0, 7)}, author ${f.author})`, 'error');
   narrate('Caught it! gitleaks flagged the key in CI.', `GitHub Actions scanned the full history and found a ${f.ruleId} in ${f.file}. LeakGuard now takes over automatically: rotate, redeploy, revoke, clean, verify, prove.`);
 
   const cur = await vault.readCurrent();
   const managed = cur && secrets.includes(cur.data.api_key);
   if (managed && cur) {
-    // 1. ROTATE — new key first, so production never goes down.
+    // 1. ROTATE: new key first, so production never goes down.
     step('rotate', 'running', 'Creating a new key via the API Keys API…');
-    narrate('Step 1 · Mint a fresh key.', 'LeakGuard asks Google\'s API Keys API for a brand-new Gemini key and stores it in HashiCorp Vault as a new version. The old key still works for a few seconds so production does not break.');
+    narrate('Mint a fresh key.', 'LeakGuard asks Google\'s API Keys API for a brand-new Gemini key and stores it in HashiCorp Vault as a new version. The old key still works for a few seconds so production does not break.');
     const fresh = await google.createKey(`fortune-teller-prod-${Date.now()}`);
     log('google', `Created ${fresh.keyId.split('/').pop()} → ${mask(fresh.keyString)}`, 'success');
     const newVersion = await vault.writeSecret({
@@ -232,10 +240,11 @@ async function remediate(run: ActionsRun, findings: Finding[], secrets: string[]
     log('vault', `secret/${config.vaultSecretPath} v${newVersion} written (v${cur.version} superseded)`, 'success');
     step('rotate', 'done', `Vault v${cur.version} → v${newVersion}`);
     mark('New key stored in Vault', 'good', 'rotate');
+    await pace();
 
-    // 2. REDEPLOY — restart the container, it pulls v(new) from Vault via AppRole.
+    // 2. REDEPLOY: restart the container, it pulls v(new) from Vault via AppRole.
     step('redeploy', 'running', `Restarting ${config.demoAppContainer}…`);
-    narrate('Step 2 · Redeploy production with the new key.', 'The Docker container is restarted. On boot it logs into Vault with its AppRole identity and fetches the new key. Users of the app see no downtime.');
+    narrate('Redeploy production with the new key.', 'The Docker container is restarted. On boot it logs into Vault with its AppRole identity and fetches the new key. Users of the app see no downtime.');
     state.app.status = 'restarting';
     changed();
     await docker.restartApp();
@@ -249,25 +258,27 @@ async function remediate(run: ActionsRun, findings: Finding[], secrets: string[]
     step('redeploy', 'done', `healthy on key v${newVersion}`);
     log('docker', `App healthy on key v${newVersion} ${mask(fresh.keyString)}`, 'success');
     mark('Production running on new key', 'good', 'redeploy');
+    await pace();
 
-    // 3. REVOKE — now the leaked key can die.
+    // 3. REVOKE: now the leaked key can die.
     step('revoke', 'running', `Deleting ${cur.data.key_id.split('/').pop()}…`);
-    narrate('Step 3 · Kill the leaked key.', 'Now that production no longer needs it, LeakGuard deletes the leaked key at Google. Watch the attacker panel: their requests start failing.');
+    narrate('Kill the leaked key.', 'Now that production no longer needs it, LeakGuard deletes the leaked key at Google. Watch the attacker panel: their requests start failing.');
     await google.deleteKey(cur.data.key_id);
     state.incident.revokedAt = Date.now();
     const leakedV = state.vault.versions.find((v) => v.version === cur.version);
     if (leakedV) leakedV.status = 'revoked';
-    log('google', `Deleted leaked key ${mask(cur.data.api_key)} — it is now worthless`, 'success');
+    log('google', `Deleted leaked key ${mask(cur.data.api_key)}, it is now worthless`, 'success');
     step('revoke', 'done', `${mask(cur.data.api_key)} deleted at Google`);
     mark('Leaked key revoked', 'good', 'revoke');
+    await pace();
   } else {
-    for (const id of ['rotate', 'redeploy', 'revoke'] as const) step(id, 'skipped', 'Not a LeakGuard-managed secret — owner notified');
+    for (const id of ['rotate', 'redeploy', 'revoke'] as const) step(id, 'skipped', 'Not a LeakGuard-managed secret . Owner notified');
     log('leakguard', 'Leaked secret is not managed by LeakGuard; skipping rotation', 'warn');
   }
 
   // 4. CLEAN HISTORY
   step('clean', 'running', 'git filter-repo --replace-text…');
-  narrate('Step 4 · Erase it from git history.', 'Deleting the file in a new commit would leave the key in history forever. LeakGuard rewrites every commit with git filter-repo, replacing the key with ***REMOVED-BY-LEAKGUARD***, and force-pushes.');
+  narrate('Erase it from git history.', 'Deleting the file in a new commit would leave the key in history forever. LeakGuard rewrites every commit with git filter-repo, replacing the key with ***REMOVED-BY-LEAKGUARD***, and force-pushes.');
   state.repo.previousCommits = state.repo.commits;
   await exclusive(() => git.rewriteHistory(secrets));
   await refreshRepo();
@@ -275,10 +286,11 @@ async function remediate(run: ActionsRun, findings: Finding[], secrets: string[]
   log('git', `History rewritten & force-pushed. New HEAD ${lastHead.slice(0, 7)}`, 'success');
   step('clean', 'done', `HEAD ${state.repo.previousCommits[0]?.short} → ${lastHead.slice(0, 7)}`);
   mark('History scrubbed', 'good', 'clean');
+  await pace();
 
-  // 5. VERIFY — local gitleaks + wait for CI to go green.
+  // 5. VERIFY: local gitleaks + wait for CI to go green.
   step('verify', 'running', 'gitleaks on full history…');
-  narrate('Step 5 · Double-check everything.', 'gitleaks re-scans every commit locally, and the force-push triggers the GitHub Actions scan again. Both must come back clean.');
+  narrate('Double-check everything.', 'gitleaks re-scans every commit locally, and the force-push triggers the GitHub Actions scan again. Both must come back clean.');
   const localFindings = await exclusive(() => git.scanLocal());
   if (localFindings > 0) throw new Error(`gitleaks still finds ${localFindings} secret(s) after the rewrite`);
   log('gitleaks', 'Local scan of full rewritten history: 0 findings', 'success');
@@ -295,10 +307,11 @@ async function remediate(run: ActionsRun, findings: Finding[], secrets: string[]
   step('verify', 'done', ci?.status === 'completed' ? `Local 0 findings · CI run #${ci.runNumber} ✔` : 'Local 0 findings · CI still running');
   log('github', ci?.status === 'completed' ? `CI re-scan run #${ci.runNumber} passed` : 'CI re-scan still running (continuing)', 'success');
   mark('Re-scan clean', 'good', 'verify');
+  await pace();
 
   // 6. PROVE
   step('prove', 'running', 'Generating Groth16 proof…');
-  narrate('Step 6 · Prove it — without showing the code.', 'The repo is private, so an auditor cannot just look. LeakGuard generates a zero-knowledge proof: "the leaked key is not anywhere in this commit\'s files" — verifiable by anyone, revealing nothing else.');
+  narrate('Prove it, without showing the code.', 'The repo is private, so an auditor cannot just look. LeakGuard generates a zero-knowledge proof: "the leaked key is not anywhere in this commit\'s files", verifiable by anyone, revealing nothing else.');
   const ok = await proveNow();
   if (!ok) throw new Error(state.zk.error || 'Proof failed');
   step('prove', 'done', `${state.zk.tokenCount} tokens · ${state.zk.durationMs} ms`);
@@ -309,8 +322,8 @@ async function remediate(run: ActionsRun, findings: Finding[], secrets: string[]
   state.busy = false;
   const secs = (t?: number) => (t && state.incident.leakedAt ? Math.round((t - state.incident.leakedAt) / 1000) : 0);
   narrate(
-    'Incident closed. ✅',
-    `Key dead ${secs(state.incident.revokedAt)}s after the leak, history clean and proven at ${secs(state.incident.resolvedAt)}s — with zero downtime. Click "Verify in my browser" to check the proof yourself.`,
+    'Incident closed.',
+    `Key dead ${secs(state.incident.revokedAt)}s after the leak, history clean and proven at ${secs(state.incident.resolvedAt)}s, with zero downtime. Click "Verify in my browser" to check the proof yourself.`,
   );
   log('leakguard', `Incident #${state.incident.id} resolved in ${secs(state.incident.resolvedAt)}s`, 'success');
 }
@@ -350,7 +363,7 @@ export async function proveNow(): Promise<boolean> {
     state.zk = { status: 'failed', error: dirty ? `Can't prove a lie: ${mask(target)} is still in the repo` : (e as Error).message };
     log('zk', state.zk.error!, dirty ? 'warn' : 'error');
     if (dirty && state.incident.status !== 'remediating') {
-      narrate('No proof possible — and that is the point.', `The circuit refuses to produce a proof while ${mask(target)} is still somewhere in the repo's history. A zero-knowledge proof cannot be faked.`);
+      narrate('No proof possible, and that is the point.', `The circuit refuses to produce a proof while ${mask(target)} is still somewhere in the repo's history. A zero-knowledge proof cannot be faked.`);
     }
     changed();
     return false;

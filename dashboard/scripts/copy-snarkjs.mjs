@@ -1,5 +1,5 @@
 // Copies the browser build of snarkjs into public/ so the dashboard can verify
-// Groth16 proofs client-side ("don't trust our server — verify it yourself").
+// Groth16 proofs client-side ("don't trust our server, verify it yourself").
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

@@ -50,7 +50,7 @@ server.listen(config.port, () => {
   console.log(`orchestrator on :${config.port}`);
   const start = () =>
     bootstrap().catch((e) => {
-      log('leakguard', `Bootstrap failed: ${e.message} — retrying in 5s`, 'error');
+      log('leakguard', `Bootstrap failed: ${e.message}. Retrying in 5s`, 'error');
       setTimeout(start, 5000);
     });
   start();

@@ -16,7 +16,7 @@ export function fmtSecs(ms: number): string {
 }
 
 export function ago(t: number | undefined, now: number): string {
-  if (!t) return '—';
+  if (!t) return '-';
   const d = Math.max(0, now - t);
   if (d < 2000) return 'just now';
   if (d < 60_000) return `${Math.floor(d / 1000)}s ago`;
@@ -29,10 +29,10 @@ export function clockTime(t: number): string {
 }
 
 export function short(sha?: string, n = 7): string {
-  return sha ? sha.slice(0, n) : '—';
+  return sha ? sha.slice(0, n) : '-';
 }
 
 export function middle(s: string | undefined, keep = 10): string {
-  if (!s) return '—';
+  if (!s) return '-';
   return s.length <= keep * 2 + 1 ? s : `${s.slice(0, keep)}…${s.slice(-keep)}`;
 }

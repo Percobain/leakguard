@@ -164,7 +164,7 @@ const server = http.createServer((req, res) => {
   if (req.url === '/api/state') return send(200, state);
   if (req.method === 'POST' && req.url === '/api/leak') { if (state.busy) return send(409, { error: 'busy' }); leak(); return send(202, { ok: true }); }
   if (req.method === 'POST' && req.url === '/api/reset') { timers.forEach(clearTimeout); clearInterval(attackTimer); timers = []; const id = state.incident.id; state = fresh(); state.incident.id = id; broadcast(); return send(200, { ok: true }); }
-  if (req.method === 'POST' && req.url === '/api/zk/prove') { state.zk = { status: 'failed', error: 'Leaked key still present in repo — proof impossible' }; broadcast(); return send(200, {}); }
+  if (req.method === 'POST' && req.url === '/api/zk/prove') { state.zk = { status: 'failed', error: 'Leaked key still present in repo: proof impossible' }; broadcast(); return send(200, {}); }
   send(404, { error: 'not found' });
 });
 const wss = new WebSocketServer({ server, path: '/ws' });

@@ -25,6 +25,9 @@ export const config = {
   demoAppUrl: env('DEMO_APP_URL', 'http://demo-app:3000'),
   attackerUrl: env('ATTACKER_URL', 'http://attacker:5000'),
 
+  // Minimum time each chapter stays on screen so an audience can follow (0 = full speed).
+  demoPaceMs: Number(env('DEMO_PACE_MS', '3000')),
+
   leakAuthorName: 'Rahul (intern)',
   leakAuthorEmail: 'rahul.intern@fortuneteller.dev',
 };

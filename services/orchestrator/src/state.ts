@@ -5,7 +5,7 @@ const STEP_DEFS: Omit<Step, 'status'>[] = [
   { id: 'leak', title: 'Leak', tool: 'git push', explain: 'A developer accidentally commits the production Gemini API key and pushes it to GitHub.' },
   { id: 'detect', title: 'Detect', tool: 'GitHub Actions + gitleaks', explain: 'Every push triggers a CI job that scans the entire git history for secrets.' },
   { id: 'rotate', title: 'Rotate', tool: 'Google API Keys API + Vault', explain: 'LeakGuard mints a brand-new key and stores it in HashiCorp Vault as a new version.' },
-  { id: 'redeploy', title: 'Redeploy', tool: 'Docker', explain: 'The production container restarts and pulls the new key from Vault — users never notice.' },
+  { id: 'redeploy', title: 'Redeploy', tool: 'Docker', explain: 'The production container restarts and pulls the new key from Vault. Users never notice.' },
   { id: 'revoke', title: 'Revoke', tool: 'Google API Keys API', explain: 'Only now is the leaked key deleted at Google, so it is useless to anyone who copied it.' },
   { id: 'clean', title: 'Clean history', tool: 'git filter-repo', explain: 'The secret is scrubbed from every commit and the rewritten history is force-pushed.' },
   { id: 'verify', title: 'Verify', tool: 'gitleaks + GitHub Actions', explain: 'The whole history is re-scanned, locally and in CI, and must come back with zero findings.' },

@@ -36,6 +36,7 @@ export interface Incident {
   resolvedAt?: number;
   leakCommit?: string;
   leakedKeyMasked?: string;
+  pacedMs?: number;      // presentation pauses inserted between chapters (DEMO_PACE_MS)
   findings: Finding[];
 }
 
@@ -52,7 +53,7 @@ export interface AttackerAttempt {
   t: number;
   keyMasked: string;
   status: number;        // HTTP status from the Gemini endpoint
-  message: string;       // "200 OK — model replied" / "403 API_KEY_INVALID"
+  message: string;       // "200 OK: model replied" / "403 API_KEY_INVALID"
 }
 
 export interface AttackerState {
@@ -120,7 +121,7 @@ export interface ZkState {
   provedAt?: number;
   durationMs?: number;
   tokenCount?: number;         // candidate tokens committed (max 64)
-  error?: string;              // e.g. "Leaked key still present in repo — proof impossible"
+  error?: string;              // e.g. "Leaked key still present in repo: proof impossible"
 }
 
 export interface LogLine {

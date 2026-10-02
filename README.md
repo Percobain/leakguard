@@ -46,7 +46,18 @@ open http://localhost:8080  # LeakGuard mission control
 
 Other ports: Fortune-Teller app `:3000`, Vault UI `:8200` (token `leakguard-root`), orchestrator API `:4000`.
 
-## Demo script (≈ 60 s)
+`DEMO_PACE_MS` (default `3000`) holds each finished chapter on screen so an audience can follow along.
+The dashboard reports how much of the total time was pacing. Set it to `0` for full speed (about 35 s end to end).
+
+## The dashboard
+
+The UI reads like a story. The left rail lists the eight chapters in order (Leak, Detect, Rotate, Redeploy,
+Revoke, Clean history, Verify, Prove). The stage on the right always shows the chapter happening *now*, with
+one plain-English sentence and one visual. Underneath, three vital signs stay visible the whole time: the attacker,
+the production app and the repository. The technical log is tucked into a drawer at the bottom.
+Click any finished chapter to replay it, then "follow live" to return.
+
+## Demo script (about 60 s)
 
 1. **Leak a key**: "Rahul (intern)" commits `config/production.env` containing the production Gemini key. The exposure clock starts.
 2. Within a few seconds the **attacker bot** harvests the key and starts getting `200 OK` from Gemini.

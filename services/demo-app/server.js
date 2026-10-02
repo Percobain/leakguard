@@ -1,6 +1,6 @@
-// "Gemini Fortune Teller" — the production app whose key LeakGuard protects.
+// "Gemini Fortune Teller", the production app whose key LeakGuard protects.
 // On startup it logs in to Vault with AppRole, reads the Gemini key ONCE, and keeps using it.
-// So a rotated key only takes effect after a redeploy — exactly what LeakGuard automates.
+// So a rotated key only takes effect after a redeploy, exactly what LeakGuard automates.
 import http from 'node:http';
 
 const PORT = Number(process.env.PORT || 3000);
