@@ -63,6 +63,42 @@ The architecture, design decisions and the zero-knowledge proof are explained in
 [TECHNICAL.md](TECHNICAL.md).
 
 ---
+## Zero Knowledge Proof Cicuit
+
+```mermaid
+flowchart LR
+    A["Cleaned Git Repository"] --> B["Extract Candidate Tokens"]
+    B --> C["tokens[64] – PRIVATE"]
+    C --> D["LeakGuard Circom Circuit<br/>Checks: leaked key is absent<br/>from candidate tokens"]
+    D --> E["snarkjs + Groth16"]
+    E --> F["ZK Proof"]
+    F --> G["Verifier → VALID / INVALID"]
+
+    H["leakedKeyHash – PUBLIC"] --> D
+    I["commitSha – PUBLIC"] --> D
+
+    J["Merkle Root / Commitment<br/>= fingerprint of the token set"]
+    J -.-> D
+
+    K["Verifier can verify the claim without seeing the private tokens."]
+    G -.-> K
+
+    classDef process fill:#F4F7FB,stroke:#64748B,color:#172033,stroke-width:1.5px;
+    classDef private fill:#FFF3D6,stroke:#D97706,color:#7C2D12,stroke-width:1.5px;
+    classDef public fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E,stroke-width:1.5px;
+    classDef proof fill:#EDE9FE,stroke:#7C3AED,color:#4C1D95,stroke-width:1.5px;
+    classDef note fill:#F8FAFC,stroke:#94A3B8,color:#334155,stroke-dasharray:4 3;
+
+    class A,B,E,G process;
+    class C private;
+    class H,I public;
+    class D,F proof;
+    class J,K note;
+
+    linkStyle default stroke:#64748B,stroke-width:1.5px;
+
+```
+---
 
 ## Running it locally
 
